@@ -8,22 +8,29 @@ class NODE_PT_Material_Mixer(Panel):
     bl_category = "Material Mixer"
     bl_label = "Material Mixer"
 
+    @classmethod
+    def poll(cls,context):
+        return context.material is not None
+
     def draw(self, context):
         scn = context.scene
         prop = scn.material_mixer_props
         mat = context.material
         layout = self.layout
-
-        layout.prop_search(prop, "material_mixer_selector", bpy.data, "materials")
         box = layout.box()
         row = box.row()
+        row.scale_x = 20
+        row.label(text='New Mix')
+        mix_settings_box = box.box()
+        mix_settings_box.prop_search(prop, "material_mixer_selector", bpy.data, "materials")
+        row = mix_settings_box.row()
         row.prop(prop,'ground_object',text='Ground Object')
-        row = box.row()
+        row = mix_settings_box.row()
         if not prop.ground_object:
             row.enabled = False
             row.label(text='No ground object selected',icon='ERROR')
         row.prop(prop,'change_obj_coord',text='Change Object Coords')
-        row = box.row()
+        row = mix_settings_box.row()
         if not prop.ground_object:
             row.enabled = False
             row.label(text='No ground object selected',icon='ERROR')
@@ -32,16 +39,75 @@ class NODE_PT_Material_Mixer(Panel):
             row.label(text='Ground object has no UV data',icon='ERROR')
         row.prop(prop,'change_uv_maps',text='Change UV Map')
         if row.enabled and prop.change_uv_maps:
-            row = box.row()
+            row = mix_settings_box.row()
             row.prop(prop,'uv_selector',text='Target UV Map')
-        row = layout.row()
+        row = mix_settings_box.row()
         row.prop(prop,'use_complex_mixer',text='Use complex Mixer')
-        row = layout.row()
+        row = box.row()
         if bpy.data.materials.get(prop.material_mixer_selector) == mat:
             row.label(text='Can not mix same material', icon='ERROR')
         else:
             row.scale_y = 2.0
             row.operator('object.mix_materials',icon='MATERIAL')
+        if len(mat.material_mixer_props.mixes) > 0:
+            draw_mixes(self,context,layout)
+
+
+def draw_mixes(self,context,layout):
+    material = context.material
+    header,panel = layout.panel('mixes')
+    header.label(text='All Mixes')
+    if not panel:
+        return
+    for i, m in enumerate(material.material_mixer_props.mixes):
+        box = panel.box()
+        row = box.row()
+        row.label(text=m.source_material.name)
+        op = row.operator("object.update_material",text='Update',icon='RECOVER_LAST')
+        op.material_index = i
+        row.operator("object.delete_mix",text='Delete',icon='CANCEL')
+        if m.is_complex:
+            
+            row = box.row()
+            row.prop(m,'using_height_blending',text='Enable height blending')
+            row = box.row()
+            row.prop(m,'using_object_blending',text='Enable object blending')
+            row = box.row()
+            row.prop(m,'ground_obj',text='Ground Object')
+            box.separator(factor=0.25)
+            #Object Height Settings
+            if m.using_object_blending:
+                box = box.box()
+                #Left Side
+                split = box.split()
+                col = split.column()
+                col.label(text='Object Height Blending')
+                controller_height_text = 'Remove controller' if m.using_controller else 'Add controller'
+                op = col.operator("object.contoller_object_height",text=controller_height_text)
+                op.do_delete = m.using_controller
+                op.material_index = i
+                #Right Side
+                split = split.split(factor=0.4)
+                col = split.column()
+                col.label(text='Blending Mode')
+                col.label(text='Interpolation')
+                col = split.column()
+                col.prop(m,'object_blending_mode',text='')
+                col.prop(m,'interpolation',text='')
+            
+                #Controller
+                if m.using_controller:
+                    row = box.row()
+                    op = row.operator('object.contoller_select',text='Select Max',icon='RESTRICT_SELECT_OFF')
+                    op.material_index = i
+                    op.controller_type = 'MAX'
+                    op = row.operator('object.contoller_select',text='Select Min',icon='RESTRICT_SELECT_OFF')
+                    op.material_index = i
+                    op.controller_type = 'MIN'
+            panel.separator(factor=0.5)
+                
+
+
 
 CLASSES = [NODE_PT_Material_Mixer]
 

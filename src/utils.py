@@ -26,7 +26,17 @@ def add_data_transfer(obj,ground,uv_map_name_src:str ,uv_map_name_dst:str):
     if n > 0:
         obj.modifiers.move(n,0)
 
-
+def remove_controller(mix_prop,tree):
+    nodes = tree.nodes 
+    min_max_group = nodes.get(mix_prop.min_max_group_name)
+    nodes.remove(min_max_group)
+    if mix_prop.min_obj:
+        bpy.data.objects.remove(mix_prop.min_obj)
+    if mix_prop.max_obj:
+        bpy.data.objects.remove(mix_prop.max_obj)
+    mix_prop.min_obj = None
+    mix_prop.max_obj = None
+    mix_prop.using_controller = False
 
 def find_all_nodes_by_type(nodes,node_type:str):
     result = []
@@ -35,12 +45,13 @@ def find_all_nodes_by_type(nodes,node_type:str):
             result.append(n)
     return result
 
-def add_group_outputs(group):
+def add_group_outputs(group,make_new_socket=True):
     tree = group.node_tree
     nodes = tree.nodes
 
-    tree.interface.new_socket(name="Shader", in_out='OUTPUT',socket_type='NodeSocketShader')
-    tree.interface.new_socket(name="Displacement", in_out='OUTPUT',socket_type='NodeSocketFloat')
+    if make_new_socket:
+        tree.interface.new_socket(name="Shader", in_out='OUTPUT',socket_type='NodeSocketShader')
+        tree.interface.new_socket(name="Displacement", in_out='OUTPUT',socket_type='NodeSocketFloat')
     output_node = nodes.new('NodeGroupOutput')
 
     material_output_node = nodes.get("Material Output")
@@ -55,9 +66,15 @@ def add_group_outputs(group):
             tree.links.new(displacement_socket,output_node.inputs[1])
 
     
+def add_empty(name):
+    empty = bpy.data.objects.new(name,None)
+    bpy.context.collection.objects.link(empty)
+    empty.show_name = True
+    empty.show_in_front = True
+    return empty
 
-def append_mixer_group(use_complex = False):
-    group_name = 'Material_Mixer_Group_Complex' if use_complex else 'Material_Mixer_Group'
+def append_mixer_group(group_name):
+    
     working_dir = Path(__file__).parent.absolute()
     dir_name = os.path.join(working_dir,'material_mixer_group.blend')
     if not bpy.data.node_groups.get(group_name):
@@ -87,15 +104,15 @@ def link_mixer(material_output_node,mixer_node,target_material_group_node,tree):
                 displacement_input_socket = displacement_node.inputs[0].links[0].from_socket
                 tree.links.new(displacement_input_socket,mixer_node.inputs[1])
     
-    tree.links.new(target_material_group_node.outputs[0],mixer_node.inputs[3])
-    tree.links.new(target_material_group_node.outputs[1],mixer_node.inputs[4])
+    tree.links.new(target_material_group_node.outputs[0],mixer_node.inputs[4])
+    tree.links.new(target_material_group_node.outputs[1],mixer_node.inputs[5])
     tree.links.new(mixer_node.outputs[0],material_output_node.inputs[0])
     tree.links.new(mixer_node.outputs[1],material_output_node.inputs[2])
 
 
-
 def add_mixer_to_tree(nodes,use_complex=False,ground_object=None):
-    mixer_group = append_mixer_group(use_complex=use_complex)
+    group_name = 'Material_Mixer_Group_Complex' if use_complex else 'Material_Mixer_Group'
+    mixer_group = append_mixer_group(group_name)
     mixer_node = add_shader_group_to_nodes(mixer_group,nodes)
     if use_complex and ground_object:
         set_texture_coords(mixer_node,ground_object=ground_object)
@@ -118,13 +135,15 @@ def swap_uv_map(tree,uv_map_name):
         for l in n.outputs[2].links:
             tree.links.new(uv_node.outputs[0],l.to_socket)
         
-
 def remove_material_output(nodes):
     material_output_node = nodes.get("Material Output")
     nodes.remove(material_output_node)
 
 
-def mix_materials(node_tree, target_material,context):
+def mix_materials(material, target_material,context):
+    displacement_strenght_a = 0.0
+    displacement_strenght_b = 0.0
+    node_tree = material.node_tree
     scn = context.scene
     obj = context.object
     nodes = node_tree.nodes
@@ -137,7 +156,7 @@ def mix_materials(node_tree, target_material,context):
 
     target_material.node_tree.use_fake_user = True
     #target_material_group_node = add_shader_group_to_nodes(target_material.node_tree,nodes,is_copy=True)
-    target_material_group_node = copy_nodes_from_mat_to_group(target_material,nodes)
+    target_material_group_node = add_material_copy(target_material,nodes)
     if not find_all_nodes_by_type(target_material_group_node.node_tree.nodes,'GROUP_OUTPUT'):
         add_group_outputs(target_material_group_node)
     if prop.change_obj_coord and prop.ground_object:
@@ -150,23 +169,51 @@ def mix_materials(node_tree, target_material,context):
     target_material_group_node.location = mixer_node.location
     target_material_group_node.location.y -= 500
 
+    # durchschnitt der displacement 
+    dis_node_a = find_all_nodes_by_type(nodes,'DISPLACEMENT')
+    if dis_node_a:
+        displacement_strenght_a = dis_node_a[0].inputs['Scale'].default_value
+    dis_node_b = find_all_nodes_by_type(target_material_group_node.node_tree.nodes,'DISPLACEMENT')
+    if dis_node_b:
+        displacement_strenght_a = dis_node_a[0].inputs['Scale'].default_value
+    strenght_avg = (displacement_strenght_a+displacement_strenght_b)/2
+    if prop.use_complex_mixer:
+        mixer_node.inputs[15].default_value = strenght_avg
+    else:
+        mixer_node.inputs[7].default_value = strenght_avg
+
     link_mixer(material_output_node,mixer_node,target_material_group_node,node_tree)
     remove_material_output(target_material_group_node.node_tree.nodes)
 
-def copy_nodes_from_mat_to_group(target_material,nodes):
+    add_material_prop(material,target_material,target_material_group_node.name,mixer_node.name,prop.use_complex_mixer,prop,prop.ground_object)
+
+def add_material_copy(target_material,nodes):
     group = bpy.data.node_groups.new( name=target_material.name+'_copy', type="ShaderNodeTree" )
     target_nodes = target_material.node_tree.nodes
-    copy_nodes(target_nodes, group)
-    copy_links(target_nodes, group)
+    copy_nodes_from_mat_to_group(target_nodes,group)
     group_node = nodes.new('ShaderNodeGroup')
     group_node.node_tree = group
     return group_node
 
+def copy_nodes_from_mat_to_group(target_nodes,group):
+    copy_nodes(target_nodes, group)
+    copy_links(target_nodes, group)
 
-
+def add_material_prop(material,target_material,material_group_name,mixer_group_name,is_complex,scn_prop,ground_obj=None):
+    mixer_var = material.material_mixer_props.mixes.add()
+    mixer_var.owner_material = material
+    mixer_var.source_material = target_material
+    mixer_var.material_group_name = material_group_name
+    mixer_var.mixer_group_name = mixer_group_name
+    mixer_var.is_complex = is_complex
+    mixer_var.ground_obj = ground_obj
+    mixer_var.is_change_object_coords = scn_prop.change_obj_coord
+    mixer_var.is_change_uv_map = scn_prop.change_uv_maps
 
 def copy_links(nodes, group):
     for node in nodes:
+        if node.type == 'FRAME':#wenn NodeFrame kopiert wird, crasht das ganze    Error   : EXCEPTION_ACCESS_VIOLATION
+            continue
         new_node = group.nodes[ node.name ]
         for i, inp in enumerate( node.inputs ):
             for link in inp.links:
@@ -178,6 +225,8 @@ def copy_nodes(nodes, group):
     input_attributes = ( "default_value", "name" )
     output_attributes = ( "default_value", "name" )
     for node in nodes:
+        if node.type == 'FRAME':#wenn NodeFrame kopiert wird, crasht das ganze    Error   : EXCEPTION_ACCESS_VIOLATION
+            continue
         new_node = group.nodes.new( node.bl_idname )
         node_attributes = get_node_attributes(node)
         copy_attributes(node_attributes, node, new_node )
@@ -197,9 +246,22 @@ def copy_attributes(attributes, old_prop, new_prop):
 
 
 def get_node_attributes(node):
-    ignore_attributes = ( "rna_type", "type", "dimensions", "inputs", "outputs", "internal_links", "select")
+    ignore_attributes = ( "rna_type", "type", "dimensions", "inputs", "outputs", "internal_links", "select","parent")#Crash wenn Frame, also parent blacklisten
     attributes = []
     for attr in node.bl_rna.properties:
         if not attr.identifier in ignore_attributes and not attr.identifier.split("_")[0] == "bl":
             attributes.append(attr.identifier)
     return attributes
+
+def add_height_controll_node(nodes):
+    group_name = 'Material_Mixer_Obj_Min_Max_Group'
+    controller_node_group = append_mixer_group(group_name)
+    node = add_shader_group_to_nodes(controller_node_group,nodes)
+    return node
+    
+
+def clear_node_group(group):
+    tree = group.node_tree
+    nodes = tree.nodes 
+    for n in nodes:
+        nodes.remove(n)
