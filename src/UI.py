@@ -44,6 +44,7 @@ class NODE_PT_Material_Mixer(Panel):
         row = mix_settings_box.row()
         row.prop(prop,'use_complex_mixer',text='Use complex Mixer')
         row = box.row()
+        row.alert = bpy.data.materials.get(prop.material_mixer_selector) == mat
         if bpy.data.materials.get(prop.material_mixer_selector) == mat:
             row.label(text='Can not mix same material', icon='ERROR')
         else:
@@ -61,24 +62,29 @@ def draw_mixes(self,context,layout):
         return
     for i, m in enumerate(material.material_mixer_props.mixes):
         box = panel.box()
+        if not m.get_mixer_node_group():
+            box.alert = True
+            box.label(text='WARNING: Mixer Node have been deleted!',icon='ERROR')
         row = box.row()
-        row.label(text=m.source_material.name)
-        op = row.operator("object.update_material",text='Update',icon='RECOVER_LAST')
+        split = row.split(factor=0.09)
+        split.prop(m,'group_color',text='')
+        
+        split.label(text=m.source_material.name,icon='MATERIAL')
+        op = split.operator("object.update_material",text='Update',icon='RECOVER_LAST')
         op.material_index = i
-        row.operator("object.delete_mix",text='Delete',icon='CANCEL')
+        op = split.operator("object.delete_mix",text='Delete',icon='CANCEL')
+        op.material_index = i
         if m.is_complex:
-            
             row = box.row()
             row.prop(m,'using_height_blending',text='Enable height blending')
             row = box.row()
             row.prop(m,'using_object_blending',text='Enable object blending')
             row = box.row()
             row.prop(m,'ground_obj',text='Ground Object')
-            box.separator(factor=0.25)
+            box.separator(factor=0.25)    
             #Object Height Settings
             if m.using_object_blending:
                 box = box.box()
-                #Left Side
                 split = box.split()
                 col = split.column()
                 col.label(text='Object Height Blending')
@@ -107,9 +113,39 @@ def draw_mixes(self,context,layout):
             panel.separator(factor=0.5)
                 
 
+class NODE_PT_Material_Mixer_Utils(Panel):
+    bl_space_type = 'NODE_EDITOR'
+    bl_region_type = 'UI'
+    bl_category = "Material Mixer"
+    bl_label = "Material Mixer Utils"
+    bl_options = {'DEFAULT_CLOSED'}
 
 
-CLASSES = [NODE_PT_Material_Mixer]
+    @classmethod
+    def poll(cls,context):
+        return context.material is not None
+
+    def draw(self, context):
+        scn = context.scene
+        utils_prop = scn.material_mixer_utils_props
+        layout = self.layout
+        box = layout.box()
+        row = box.row()
+        row.label(text='Add mixer to node tree')
+        row = box.row()
+        row.operator('object.material_mixer_utils_add_mixer',text='Add simple mixer')
+        op = row.operator('object.material_mixer_utils_add_mixer',text='Add complex mixer')
+        op.mixer_type = 'COMPLEX'
+        box = layout.box()
+        row = box.row()
+        row.alert = utils_prop.material_mixer_selector == context.material.name
+        row.prop_search(utils_prop,'material_mixer_selector',bpy.data, "materials",text='')
+        if utils_prop.material_mixer_selector == context.material.name:
+            row.label(text='Can not mix same material', icon='ERROR')
+        else:
+            row.operator('object.material_mixer_utils_add_material_copy',text='Copy Material to Tree')
+
+CLASSES = [NODE_PT_Material_Mixer,NODE_PT_Material_Mixer_Utils]
 
 def register():
     for c in CLASSES:
