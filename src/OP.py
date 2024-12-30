@@ -4,7 +4,9 @@ from bpy.types import Operator
 
 from .utils import mix_materials,copy_nodes_from_mat_to_group,remove_material_output,add_group_outputs,clear_node_group,add_empty,add_height_controll_node,remove_controller,find_all_nodes_by_type,get_current_shader_output,add_material_copy,append_mixer_group,add_shader_group_to_nodes
 from .report_msg import report_error,report_warning
+
 class MixMaterialsOperator(Operator):
+    '''Blends two materials together using linear interpolation or height information.'''
     bl_idname = "object.mix_materials"
     bl_label = "Mix Materials"
 
@@ -35,6 +37,7 @@ class MixMaterialsOperator(Operator):
         return {'FINISHED'}
 
 class UpdateMaterialOperator(Operator):
+    '''Updates the material to apply any changes.'''
     bl_idname = "object.update_material"
     bl_label = "Update Material"
 
@@ -74,6 +77,7 @@ class UpdateMaterialOperator(Operator):
         return {'FINISHED'}
 
 class ControllerObjectHeight(Operator):
+    '''Adds or removes control objects for height-based object blending.'''
     bl_idname = "object.contoller_object_height"
     bl_label = "SHI"
     material_index : IntProperty(default=0)
@@ -122,6 +126,7 @@ class ControllerObjectHeight(Operator):
         remove_controller(mix_prop,tree)
 
 class DeleteMix(Operator):
+    '''Removes the current mix.'''
     bl_idname = "object.delete_mix"
     bl_label = "Delete Mix"
     material_index : IntProperty(default=0)
@@ -174,10 +179,11 @@ class DeleteMix(Operator):
         return {'FINISHED'}
 
 class ControllerSelect(Operator):
+    '''Selects controll object.'''
     bl_idname = "object.contoller_select"
     bl_label = "Select controller object"
     material_index : IntProperty(default=0)
-    controller_type : StringProperty(default='MIN') #MIN oder MAX
+    controller_type : StringProperty(default='MIN')
     def execute(self,context):
         material = context.material
         mix_prop = material.material_mixer_props.mixes[self.material_index]
@@ -201,6 +207,7 @@ class ControllerSelect(Operator):
             o.select_set(False)
 
 class AddUtilsMixer(Operator):
+    '''Adds a mixer node group, without adding a material mix.'''
     bl_idname = "object.material_mixer_utils_add_mixer"
     bl_label = ""
 
@@ -217,6 +224,7 @@ class AddUtilsMixer(Operator):
         return {'FINISHED'}
 
 class AddUtilsMaterialCopy(Operator):
+    '''Adds a material copy, without adding a mix node.'''
     bl_idname = "object.material_mixer_utils_add_material_copy"
     bl_label = ""
 

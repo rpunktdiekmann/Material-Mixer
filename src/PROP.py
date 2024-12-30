@@ -63,7 +63,8 @@ class MaterialMixerMaterialMix(PropertyGroup):
             if not mixer_node:
                 return
             tex_coord_node = mixer_node.node_tree.nodes.get(tex_coord_name)
-            tex_coord_node.object = self.ground_obj
+            if tex_coord_node:
+                tex_coord_node.object = self.ground_obj
         
         material_group = self.get_material_copy_group()
         if not material_group:

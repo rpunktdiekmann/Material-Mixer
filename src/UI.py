@@ -1,6 +1,7 @@
 import bpy 
 from bpy.types import Panel
 
+from .preview import preview_collections
 
 class NODE_PT_Material_Mixer(Panel):
     bl_space_type = 'NODE_EDITOR'
@@ -17,6 +18,13 @@ class NODE_PT_Material_Mixer(Panel):
         prop = scn.material_mixer_props
         mat = context.material
         layout = self.layout
+        pcoll = preview_collections["color_pal_icons"]
+        twitter_icon = pcoll["twitter_logo"]
+        row = layout.row()
+        row.template_icon(twitter_icon.icon_id,scale=5.5)
+        row = layout.row()
+        row.operator("wm.url_open", text="Follow me on twitter!").url = "https://x.com/nar_3d"
+        layout.separator(type='LINE')
         box = layout.box()
         row = box.row()
         row.scale_x = 20

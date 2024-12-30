@@ -2,6 +2,7 @@ import bpy
 import os
 from pathlib import Path
 from itertools import cycle
+
 node_color_list = [[0.067600, 0.550380, 1.000000],[1.000000, 0.204258, 0.134375],[0.291712, 0.144129, 1.000000],
     [1.000000, 0.184242, 0.451761],[0.926385, 0.220595, 1.000000],[1.000000, 0.621973, 0.130095],
     [0.515016, 1.000000, 0.269065],[0.141472, 1.000000, 0.315565],[0.114951, 1.000000, 0.903986]]
@@ -70,8 +71,7 @@ def add_group_outputs(group,make_new_socket=True):
         if displacement_node.inputs[0].is_linked:
             displacement_socket = displacement_node.inputs[0].links[0].from_socket
             tree.links.new(displacement_socket,output_node.inputs[1])
-
-    
+   
 def add_empty(name):
     empty = bpy.data.objects.new(name,None)
     bpy.context.collection.objects.link(empty)
@@ -80,7 +80,6 @@ def add_empty(name):
     return empty
 
 def append_mixer_group(group_name):
-    
     working_dir = Path(__file__).parent.absolute()
     dir_name = os.path.join(working_dir,'material_mixer_group.blend')
     if not bpy.data.node_groups.get(group_name):
@@ -97,7 +96,6 @@ def add_shader_group_to_nodes(target_node_tree,nodes,is_copy=True,delete_og=Fals
     if delete_og:
         bpy.data.node_groups.remove(target_node_tree)
     return group_node
-
 
 def link_mixer(material_output_node,mixer_node,target_material_group_node,tree,is_complex):
     shader_input_socket = material_output_node.inputs[0].links[0].from_socket
@@ -121,7 +119,6 @@ def link_mixer(material_output_node,mixer_node,target_material_group_node,tree,i
     tree.links.new(mixer_node.outputs[0],material_output_node.inputs[0])
     tree.links.new(mixer_node.outputs[1],material_output_node.inputs[2])
 
-
 def add_mixer_to_tree(nodes,use_complex=False,ground_object=None):
     group_name = 'Material_Mixer_Group_Complex' if use_complex else 'Material_Mixer_Group'
     mixer_group = append_mixer_group(group_name)
@@ -129,7 +126,6 @@ def add_mixer_to_tree(nodes,use_complex=False,ground_object=None):
     if use_complex and ground_object:
         set_texture_coords(mixer_node,ground_object=ground_object)
     return mixer_node
-
 
 def set_texture_coords(group,ground_object=None):
     tree = group.node_tree
@@ -151,7 +147,6 @@ def remove_material_output(nodes):
     material_output_node = nodes.get("Material Output")
     nodes.remove(material_output_node)
 
-
 def mix_materials(material, target_material,material_output_node,context):
     displacement_strenght_a = 0.0
     displacement_strenght_b = 0.0
@@ -166,7 +161,6 @@ def mix_materials(material, target_material,material_output_node,context):
     material_output_node.location.x += 250
 
     target_material.node_tree.use_fake_user = True
-    #target_material_group_node = add_shader_group_to_nodes(target_material.node_tree,nodes,is_copy=True)
     target_material_group_node = add_material_copy(target_material,nodes)
     if not find_all_nodes_by_type(target_material_group_node.node_tree.nodes,'GROUP_OUTPUT'):
         add_group_outputs(target_material_group_node)
@@ -200,8 +194,6 @@ def mix_materials(material, target_material,material_output_node,context):
     add_material_prop(material,target_material,target_material_group_node.name,mixer_node.name,prop.use_complex_mixer,prop,node_color,prop.ground_object)
     mixer_node.color = node_color
     
-
-
 def add_material_copy(target_material,nodes):
     group = bpy.data.node_groups.new( name=target_material.name+'_copy', type="ShaderNodeTree" )
     target_nodes = target_material.node_tree.nodes
@@ -226,8 +218,6 @@ def add_material_prop(material,target_material,material_group_name,mixer_group_n
     mixer_var.is_change_uv_map = scn_prop.change_uv_maps
     mixer_var.group_color = node_color
 
-    
-
 def copy_links(nodes, group):
     for node in nodes:
         if node.type == 'FRAME':#wenn NodeFrame kopiert wird, crasht das ganze    Error   : EXCEPTION_ACCESS_VIOLATION
@@ -237,7 +227,6 @@ def copy_links(nodes, group):
             for link in inp.links:
                 connected_node = group.nodes[ link.from_node.name ]
                 group.links.new( connected_node.outputs[ link.from_socket.name ], new_node.inputs[i] )
-
 
 def copy_nodes(nodes, group):
     input_attributes = ( "default_value", "name" )
@@ -253,7 +242,6 @@ def copy_nodes(nodes, group):
         for i, out in enumerate(node.outputs):
             copy_attributes(output_attributes,out,new_node.outputs[i] )
 
-
 def copy_attributes(attributes, old_prop, new_prop):
     for attr in attributes:
         if hasattr( new_prop, attr ):
@@ -261,7 +249,6 @@ def copy_attributes(attributes, old_prop, new_prop):
                 setattr( new_prop, attr, getattr( old_prop, attr ) )
             except:
                 pass
-
 
 def get_node_attributes(node):
     ignore_attributes = ( "rna_type", "type", "dimensions", "inputs", "outputs", "internal_links", "select","parent")#Crash wenn Frame, also parent blacklisten
@@ -277,17 +264,6 @@ def add_height_controll_node(nodes):
     node = add_shader_group_to_nodes(controller_node_group,nodes)
     return node
     
-# def get_current_shader_output(nodes):
-#     #Gibt immer zuerst den ALL Output zurück, sonst, den der mit der akutellen Engine übereinstimmt 
-#     shader_outputs = find_all_nodes_by_type(nodes,'OUTPUT_MATERIAL')
-#     if not shader_outputs: return
-#     current_render_engine = bpy.context.scene.render.engine.split('_')
-#     for n in shader_outputs:
-#         target_engine = n.target
-#         if target_engine == 'ALL':return n
-#         if target_engine in current_render_engine:return n
-#     return None
-
 def get_current_shader_output(nodes):
     #Gibt den aktiven Material Output aus, falls keiner aktiv ist, wird der erste inaktive zurück gegeben, None falls keine Material Output existiert
     shader_outputs = find_all_nodes_by_type(nodes,'OUTPUT_MATERIAL')
@@ -301,7 +277,6 @@ def get_current_shader_output(nodes):
 
 def get_color():
     return next(color_pool)
-
 
 def clear_node_group(group):
     if not group:

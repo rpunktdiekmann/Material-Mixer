@@ -13,28 +13,28 @@
 
 
 
-#TODO Testen: update wenn node gelöscht ist
+
 
 bl_info = {
     "name" : "Material Mixer",
-    "author" : "CGDesignHub",
+    "author" : "Nar_3D",
     "description" : "Mix two materials together",
-    "blender" : (4, 00, 1),
-    "version" : (1, 1, 0),
+    "blender" : (4, 3, 0),
+    "version" : (1, 2, 0),
     "location" : "",
     "warning" : "",
     "category" : "Node"
 }
 
-from .src import UI
-from .src import OP
-from .src import PROP
+from .src import preview,UI,OP,PROP
 
-MODULS = [PROP,UI,OP]
+
+MODULS = [preview,PROP,UI,OP]
 
 def register():
     for m in MODULS:
         m.register()
+    
 
 def unregister():
     for m in MODULS:
