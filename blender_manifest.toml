@@ -1,13 +1,13 @@
 schema_version = "1.0.0"
 id = "material_mixer"
-version = "1.3.0"
+version = "1.2.1"
 name = "MaterialMixer"
 tagline = "Mix two materials together"
 maintainer = "Nar_3D"
 type = "add-on"
 website = "https://x.com/nar_3d"
 tags = ["Material", "Node"]
-blender_version_min = "4.3.0"
+blender_version_min = "4.2.0"
 license = [
   "SPDX:GPL-2.0-or-later",
 ]

@@ -19,8 +19,8 @@ bl_info = {
     "name" : "Material Mixer",
     "author" : "Nar_3D",
     "description" : "Mix two materials together",
-    "blender" : (4, 3, 0),
-    "version" : (1, 2, 0),
+    "blender" : (4, 2, 0),
+    "version" : (1, 2, 1),
     "location" : "",
     "warning" : "",
     "category" : "Node"

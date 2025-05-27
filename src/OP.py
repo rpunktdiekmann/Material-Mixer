@@ -102,8 +102,13 @@ class ControllerObjectHeight(Operator):
         min_empty = add_empty(f'{material.name}_Height_Min')
         max_empty = add_empty(f'{material.name}_Height_Max')
         if self.object:
-            min_empty.location = self.object.location
-            max_empty.location = self.object.location
+            if self.object.parent:
+                loc = self.object.matrix_world@self.object.location
+            else:
+                loc = self.object.location
+                
+            min_empty.location = loc
+            max_empty.location = loc
             max_empty.location[2] += 1
         else:
             max_empty.location[2] += 1
